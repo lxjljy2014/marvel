@@ -1,0 +1,28 @@
+# --- Java / Maven ---
+target/
+*.class
+*.jar
+!.mvn/wrapper/*.jar
+
+# --- Node / 前端 ---
+node_modules/
+dist/
+*.tsbuildinfo
+marvel-ui/uploads/
+
+# --- 运行时产物 ---
+uploads/
+*.log
+
+# --- IDE / 系统 ---
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# --- 本地验证产物（截图等，不入库）---
+.playwright-mcp/
+/*.png
+
+# --- ZCode 会话产物 ---
+.zcode/

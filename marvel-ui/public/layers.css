@@ -1,0 +1,19 @@
+/* 级联层声明 —— 必须最先加载（index.html 首个样式链接）。
+   顺序含义：uno 基础/主题层位于 Vuetify core/components 之下（可被组件样式覆盖），
+   uno shortcuts/default 位于 vuetify-utilities 之上（utility 可覆盖组件默认），
+   vuetify-final（组件过渡动画）保持最高。 */
+@layer uno-base;
+@layer uno-theme;
+
+@layer vuetify-core;
+@layer vuetify-components;
+
+@layer uno-icons;
+
+@layer vuetify-overrides;
+@layer vuetify-utilities;
+
+@layer uno-shortcuts;
+@layer uno-default;
+
+@layer vuetify-final;

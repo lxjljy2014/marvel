@@ -1,0 +1,16 @@
+/* Vuetify SASS 设置 —— 官方 presetWind4 集成方案：
+   关闭 Vuetify 内置静态 utility 与 color-pack CSS（UnoCSS presetWind4 接管），
+   Material 调色板不需要（wind4 自带 Tailwind 色板）。 */
+@use 'vuetify/settings' with (
+  $color-pack: false,
+  $utilities: false,
+  // 与 src/theme/breakpoints.ts 保持一致
+  $grid-breakpoints: (
+    'xs': 0,
+    'sm': 600px,
+    'md': 960px,
+    'lg': 1280px,
+    'xl': 1920px,
+    'xxl': 2560px,
+  ),
+);

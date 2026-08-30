@@ -1,0 +1,77 @@
+# Marvel 后台管理系统
+
+Spring Boot 4 模块化单体后台管理系统，按微服务边界拆分模块，可平滑演进至 Spring Cloud。
+
+## 技术栈
+
+- 后端：Java 21 + Spring Boot 4.1 + Sa-Token 1.46 + MyBatis-Plus 3.5.17 + MySQL 8 + Redis + Flyway
+- 前端：Vue 3 + Vuetify 4 + UnoCSS（官方 presetWind4 集成）+ TypeScript + Vite + Pinia
+
+## 前端样式方案（Vuetify 官方 presetWind4 集成）
+
+参照官方指南与 `@vuetify/cli` 模板（`--css=unocss-wind4`）落地：
+
+- **级联层**：`public/layers.css` 声明 `uno-*` 与 `vuetify-*` 层顺序，由 `index.html`
+  最先加载；UnoCSS 产物经 `outputToCssLayers` 映射到 `uno-*` 层，与 Vuetify 组件样式互不冲突；
+- **工具类**：`presetWind4`（TailwindCSS v4 命名，按需生成）+ `settings.scss` 关闭 Vuetify
+  内置静态 utilities（`$utilities: false, $color-pack: false`）；
+- **主题联动**：`uno.config.ts` 的 `theme.colors` 通过 `--v-theme-*` 变量映射 Vuetify 主题色，
+  断点经 `src/theme/breakpoints.ts` 单一来源同时供给 Vuetify 与 UnoCSS；
+- **Vuetify 命名兼容**：`text-h1..text-overline`（MD2 字号）、`rounded-*` 以 shortcuts 复刻；
+  `elevation-*` 采用官网方案 A（对齐 TailwindCSS 阴影刻度 `--shadow-xs..2xl`，rules 内附
+  Tailwind v4 标准值兜底——wind4 的 shadow token 按需输出，自定义 rule 的 var() 引用不会
+  触发生成），`color` prop 动态类加入 safelist；
+- **写法约定**：布局/间距/颜色用 wind4 工具类；组件行为优先组件 props（如 `v-list` 的
+  `color`）；项目自定义样式写入 `@layer vuetify-overrides`，不覆盖组件库底层；
+- **必备导入**：`src/plugins/vuetify.ts` 中 `import 'vuetify/styles'`（官方脚手架必备，
+  提供 reset 与组件级 CSS 变量）；不要引入第三方 reset（unlayered 规则会压过 layer 内的
+  组件样式）。 + Vue Router
+
+## 模块结构（= 未来微服务边界）
+
+```
+marvel-common        纯工具：统一返回体、异常、常量
+marvel-api           模块间契约：system-api / infra-api（未来变 Feign 模块）
+marvel-framework     技术装配：Sa-Token、MyBatis-Plus、Redis、全局异常
+marvel-modules
+  module-system      用户/角色/菜单/部门（未来 system 服务）
+  module-auth        登录/验证码/动态路由（未来 auth 服务）
+  module-infra       文件存储等（未来 infra 服务）
+marvel-gateway-boot  启动器 + Flyway 迁移脚本
+marvel-ui            Vue3 前端
+```
+
+**硬性规则**：模块间只能依赖 `marvel-api` 中的接口（如 `SystemApi`），跨模块禁止直接查表；API 路径按域分段（`/system/**`、`/infra/**`、`/auth/**`），与未来网关路由一致。
+
+## 本地运行
+
+1. 启动 MySQL（root/root，或用 `MYSQL_PASSWORD` 环境变量覆盖）与 Redis，创建数据库：
+   ```sql
+   CREATE DATABASE marvel DEFAULT CHARACTER SET utf8mb4;
+   ```
+2. 后端（Flyway 自动建表并写入初始数据）：
+   ```bash
+   mvn -DskipTests install
+   cd marvel-gateway-boot && mvn spring-boot:run
+   ```
+3. 前端：
+   ```bash
+   cd marvel-ui && npm install && npm run dev
+   ```
+4. 访问 http://localhost:5173 ，默认账号 **admin / admin123**
+
+## 演进 Spring Cloud 的改造点
+
+| 现状（单体） | 拆分后（微服务） |
+|---|---|
+| module-system/auth/infra 同进程 | 各模块独立部署为服务 |
+| `SystemApi` 进程内实现（SystemApiImpl） | 替换为 Feign 客户端 |
+| marvel-gateway-boot 聚合所有 Controller | Spring Cloud Gateway 按路径前缀路由 |
+| Sa-Token + Redis 共享会话 | 各服务共享同一 Redis 会话即可 |
+| marvel-framework 本地依赖 | 抽象为私有 starter |
+
+## 路线图
+
+- 第一期（已完成）：多模块骨架、RBAC 全套（用户/角色/菜单/部门）、登录/验证码、动态路由、文件上传抽象
+- 第二期：字典管理、参数配置、通知公告、定时任务（表已建好，接口待实现）
+- 第三期：操作/登录日志、在线用户强踢、服务监控、数据权限（@DataScope）
