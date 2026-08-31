@@ -136,3 +136,72 @@ export interface UserDetailResult {
   user: SysUserRow
   roleIds: number[]
 }
+
+/* ==================== 二期：字典/参数/公告/任务 ==================== */
+
+/** 字典类型 */
+export interface SysDictTypeRow {
+  dictId: number
+  dictName: string
+  dictType: string
+  status: string
+  remark: string | null
+  createTime: string
+}
+
+/** 字典数据 */
+export interface SysDictDataRow {
+  dictCode: number
+  dictType: string
+  dictLabel: string
+  dictValue: string
+  orderNum: number
+  status: string
+  remark: string | null
+  createTime: string
+}
+
+/** 系统参数 */
+export interface SysConfigRow {
+  configId: number
+  configName: string
+  configKey: string
+  configValue: string
+  remark: string | null
+  createTime: string
+}
+
+/** 通知公告 */
+export interface SysNoticeRow {
+  noticeId: number
+  title: string
+  content: string | null
+  /** 1=通知 2=公告 */
+  type: string
+  status: string
+  createTime: string
+}
+
+/** 定时任务 */
+export interface SysJobRow {
+  jobId: number
+  jobName: string
+  jobGroup: string
+  /** beanName.method */
+  invokeTarget: string
+  cronExpression: string
+  status: string
+  remark: string | null
+  createTime: string
+}
+
+/** 任务执行日志 */
+export interface SysJobLogRow {
+  jobLogId: number
+  jobId: number
+  jobName: string
+  status: string
+  errorMsg: string | null
+  startTime: string
+  endTime: string
+}
