@@ -49,7 +49,7 @@
         <template #activator="{ props: menuProps }">
           <v-btn v-bind="menuProps" variant="text" rounded="lg" class="text-none mr-2">
             <v-avatar color="primary" size="28" class="mr-2">
-              <span class="text-caption font-bold">{{ avatarText }}</span>
+              <span class="text-caption font-weight-bold">{{ avatarText }}</span>
             </v-avatar>
             <span class="text-body-2">{{ auth.nickname }}</span>
             <v-icon icon="mdi-chevron-down" size="18" class="ml-1" />
@@ -63,7 +63,13 @@
 
     <v-main>
       <v-container fluid class="p-5">
-        <router-view />
+        <!-- 页面切换过渡：reverse 变体让新页面从左侧进入、向右滑出（即"从左往右"），
+             mode=out-in 避免新旧页面同屏叠放 -->
+        <router-view v-slot="{ Component, route }">
+          <v-slide-x-reverse-transition mode="out-in" appear>
+            <component :is="Component" :key="route.path" />
+          </v-slide-x-reverse-transition>
+        </router-view>
       </v-container>
     </v-main>
   </v-app>

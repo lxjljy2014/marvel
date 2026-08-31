@@ -1,0 +1,20 @@
+/* nprogress 层级修正：默认 z-index 1031 低于 Vuetify v-app-bar（2000+），
+   会被顶栏遮挡；提升到 3000 保证进度条始终贴视口最顶端可见。 */
+#nprogress .bar {
+  z-index: 3000;
+}
+
+#nprogress .peg {
+  z-index: 3000;
+}
+
+/* 进度条颜色跟随 Vuetify 主题色：
+   --v-theme-primary 是 Vuetify 注入的 RGB 通道变量（如 79 70 229），
+   主题切换时 Vuetify 自动更新该变量，进度条颜色随之联动，无需 JS 干预。 */
+#nprogress .bar {
+  background: rgb(var(--v-theme-primary));
+}
+
+#nprogress .peg {
+  box-shadow: 0 0 10px rgb(var(--v-theme-primary)), 0 0 5px rgb(var(--v-theme-primary));
+}

@@ -20,12 +20,23 @@ public class SysMenuController {
 
     private final SysMenuService menuService;
 
-    /** 全量菜单列表（平铺，前端自行组树） */
+    /** 全量菜单列表（平铺，角色菜单树等需要自行组树的场景使用） */
     @SaCheckPermission("system:menu:list")
     @GetMapping("/list")
     public R<List<SysMenu>> list(@RequestParam(required = false) String menuName,
                                  @RequestParam(required = false) String status) {
         return R.ok(menuService.listMenus(menuName, status));
+    }
+
+    /**
+     * 树形菜单列表（菜单管理页表格使用）。
+     * 按名称搜索时保留命中节点的祖先链，树形结构完整可展开。
+     */
+    @SaCheckPermission("system:menu:list")
+    @GetMapping("/tree")
+    public R<List<SysMenu>> tree(@RequestParam(required = false) String menuName,
+                                 @RequestParam(required = false) String status) {
+        return R.ok(menuService.listTree(menuName, status));
     }
 
     @SaCheckPermission("system:menu:query")

@@ -129,6 +129,8 @@ export interface SysMenuRow {
   visible: string
   status: string
   createTime: string
+  /** 树形接口返回时存在 */
+  children?: SysMenuRow[] | null
 }
 
 /** 用户详情响应 */

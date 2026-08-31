@@ -13,6 +13,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.Comparator;
 import java.util.List;
 
@@ -28,6 +32,55 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
                 .like(StringUtils.hasText(menuName), SysMenu::getMenuName, menuName)
                 .eq(StringUtils.hasText(status), SysMenu::getStatus, status)
                 .orderByAsc(SysMenu::getOrderNum));
+    }
+
+    /**
+     * 树形菜单：按 parentId 组装 children。
+     * 搜索时只保留命中节点与其祖先链，避免父节点被过滤后子节点悬空丢失。
+     */
+    @Override
+    public List<SysMenu> listTree(String menuName, String status) {
+        List<SysMenu> all = list(new LambdaQueryWrapper<SysMenu>()
+                .eq(StringUtils.hasText(status), SysMenu::getStatus, status)
+                .orderByAsc(SysMenu::getOrderNum));
+        List<SysMenu> kept = all;
+        if (StringUtils.hasText(menuName)) {
+            Map<Long, SysMenu> byId = all.stream()
+                    .collect(Collectors.toMap(SysMenu::getMenuId, m -> m));
+            Set<Long> keepIds = new HashSet<>();
+            for (SysMenu m : all) {
+                if (m.getMenuName().contains(menuName)) {
+                    SysMenu cur = m;
+                    // 沿 parentId 向上收齐祖先链
+                    while (cur != null && keepIds.add(cur.getMenuId())) {
+                        cur = byId.get(cur.getParentId());
+                    }
+                }
+            }
+            kept = all.stream().filter(m -> keepIds.contains(m.getMenuId())).toList();
+        }
+        return buildMenuTree(kept);
+    }
+
+    /** 组装实体树：父节点不在集合内的节点视为根，防止脏数据丢失 */
+    private List<SysMenu> buildMenuTree(List<SysMenu> menus) {
+        Set<Long> ids = menus.stream().map(SysMenu::getMenuId).collect(Collectors.toSet());
+        Map<Long, List<SysMenu>> byParent = menus.stream()
+                .filter(m -> m.getParentId() != null && ids.contains(m.getParentId()))
+                .collect(Collectors.groupingBy(SysMenu::getParentId));
+        List<SysMenu> roots = menus.stream()
+                .filter(m -> m.getParentId() == null || !ids.contains(m.getParentId()))
+                .toList();
+        roots.forEach(root -> attachChildren(root, byParent));
+        return roots;
+    }
+
+    private void attachChildren(SysMenu node, Map<Long, List<SysMenu>> byParent) {
+        List<SysMenu> children = byParent.get(node.getMenuId());
+        node.setChildren(children);
+        if (children != null) {
+            children.forEach(child -> attachChildren(child, byParent));
+        }
     }
 
     /**

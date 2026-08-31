@@ -1,6 +1,13 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import NProgress from 'nprogress'
 import { useAuthStore } from '@/stores/auth'
 import type { MenuNode } from '@/types/api'
+
+// 路由切换顶部进度条；隐藏右上角自带 spinner，只保留顶条
+import 'nprogress/nprogress.css'
+import '@/styles/nprogress.css'
+
+NProgress.configure({ showSpinner: false, speed: 300, minimum: 0.2 })
 
 const LoginView = (): Promise<typeof import('@/views/LoginView.vue')> => import('@/views/LoginView.vue')
 const Layout = (): Promise<typeof import('@/layout/Layout.vue')> => import('@/layout/Layout.vue')
@@ -46,6 +53,11 @@ const router = createRouter({
   ],
 })
 
+router.beforeEach(() => {
+  NProgress.start()
+  return true
+})
+
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (to.meta.public) return true
@@ -67,6 +79,14 @@ router.beforeEach(async (to) => {
   }
   if (to.name === 'not-found') return '/'
   return true
+})
+
+router.afterEach(() => {
+  NProgress.done()
+})
+
+router.onError(() => {
+  NProgress.done()
 })
 
 export default router

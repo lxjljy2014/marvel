@@ -13,7 +13,31 @@
       </v-btn>
     </v-toolbar>
 
-    <v-data-table :headers="headers" :items="rows" item-value="menuId" :loading="loading" hover>
+    <!-- 树形表格：v-data-table 不支持 children 树形数据，采用「展开集合 + 拍平渲染」
+         方案——menuName 列按层级缩进并提供展开箭头，其余列仍由组件库承担 -->
+    <v-data-table
+      :headers="headers"
+      :items="flatRows"
+      item-value="menuId"
+      :loading="loading"
+      hover
+      :items-per-page="-1"
+      hide-default-footer
+    >
+      <template #item.menuName="{ item }">
+        <div class="d-flex align-center" :style="{ paddingLeft: item.depth * 28 + 'px' }">
+          <v-btn
+            v-if="item.children?.length"
+            :icon="expandedIds.has(String(item.menuId)) ? 'mdi-menu-down' : 'mdi-menu-right'"
+            size="x-small"
+            variant="text"
+            class="mr-1"
+            @click.stop="toggleExpand(item)"
+          />
+          <span v-else class="mr-7" />
+          <span>{{ item.menuName }}</span>
+        </div>
+      </template>
       <template #item.menuType="{ item }">
         <v-chip
           size="small"
@@ -85,7 +109,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/request'
 import { clearObject } from '@/utils/object'
@@ -97,13 +121,34 @@ const MENU_TYPE_TEXT: Record<SysMenuRow['menuType'], string> = {
   F: '按钮',
 }
 
+/** 拍平后的行：depth 用于 menuName 列缩进 */
+type FlatMenuRow = SysMenuRow & { depth: number }
+
 const auth = useAuthStore()
-const rows = ref<SysMenuRow[]>([])
+/** 树形菜单数据（/system/menu/tree，children 嵌套） */
+const tree = ref<SysMenuRow[]>([])
 const loading = ref(false)
 const dialog = ref(false)
+/** 展开节点 id 集合；加载后默认全部展开 */
+const expandedIds = ref<Set<string>>(new Set())
 const parentOptions = ref<SysMenuRow[]>([])
 const form = reactive<Partial<SysMenuRow>>({})
 const snack = reactive({ show: false, text: '', color: 'success' })
+
+/** 按展开集合把树拍平为表格行：未展开节点的子树不渲染 */
+const flatRows = computed<FlatMenuRow[]>(() => {
+  const out: FlatMenuRow[] = []
+  const walk = (nodes: SysMenuRow[], depth: number): void => {
+    for (const n of nodes) {
+      out.push({ ...n, depth })
+      if (n.children?.length && expandedIds.value.has(String(n.menuId))) {
+        walk(n.children, depth + 1)
+      }
+    }
+  }
+  walk(tree.value, 0)
+  return out
+})
 
 const headers = [
   { title: 'ID', key: 'menuId', width: 70 },
@@ -123,12 +168,49 @@ function notify(text: string, color: 'success' | 'error' = 'success'): void {
 async function load(): Promise<void> {
   loading.value = true
   try {
-    rows.value = await http.get<SysMenuRow[]>('/system/menu/list')
+    tree.value = await http.get<SysMenuRow[]>('/system/menu/tree')
+    // 默认展开全部节点
+    expandedIds.value = new Set(collectIds(tree.value))
+    refreshParentOptions()
   } catch (e) {
     notify(e instanceof Error ? e.message : '加载失败', 'error')
   } finally {
     loading.value = false
   }
+}
+
+/** 切换节点展开/收起（替换整个 Set 以触发响应式更新） */
+function toggleExpand(item: SysMenuRow): void {
+  const key = String(item.menuId)
+  const next = new Set(expandedIds.value)
+  if (next.has(key)) {
+    next.delete(key)
+  } else {
+    next.add(key)
+  }
+  expandedIds.value = next
+}
+
+/** 递归收集全部节点 id（用于默认展开） */
+function collectIds(menus: SysMenuRow[], acc: string[] = []): string[] {
+  for (const m of menus) {
+    acc.push(String(m.menuId))
+    if (m.children?.length) collectIds(m.children, acc)
+  }
+  return acc
+}
+
+/** 树拍平为下拉选项（按钮不能作为上级菜单，过滤掉） */
+function refreshParentOptions(): void {
+  const flat: SysMenuRow[] = []
+  const walk = (menus: SysMenuRow[]): void => {
+    for (const m of menus) {
+      if (m.menuType !== 'F') flat.push(m)
+      if (m.children?.length) walk(m.children)
+    }
+  }
+  walk(tree.value)
+  parentOptions.value = [{ menuId: 0, menuName: '根目录' } as SysMenuRow, ...flat]
 }
 
 /** parent 为空表示新增根节点 */
@@ -140,14 +222,14 @@ async function openAdd(parent?: SysMenuRow): Promise<void> {
     orderNum: 0,
     status: '0',
   })
-  parentOptions.value = [{ menuId: 0, menuName: '根目录' } as SysMenuRow, ...rows.value]
+  refreshParentOptions()
   dialog.value = true
 }
 
 async function openEdit(item: SysMenuRow): Promise<void> {
   clearObject(form)
   Object.assign(form, item)
-  parentOptions.value = [{ menuId: 0, menuName: '根目录' } as SysMenuRow, ...rows.value]
+  refreshParentOptions()
   dialog.value = true
 }
 

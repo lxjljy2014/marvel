@@ -1,11 +1,13 @@
 package com.marvel.module.system.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @TableName("sys_menu")
@@ -43,4 +45,8 @@ public class SysMenu {
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;
+
+    /** 非表字段：子菜单（树形接口返回用） */
+    @TableField(exist = false)
+    private List<SysMenu> children;
 }
