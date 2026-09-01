@@ -1,6 +1,8 @@
 <template>
-  <v-app>
-    <v-navigation-drawer>
+  <!-- 注意：v-app 只在 App.vue 根组件出现一次；本组件作为布局层
+       直接提供 v-navigation-drawer / v-app-bar / v-main，
+       再嵌套 v-app 会形成双重布局坐标系，导致整页随内容滚动 -->
+  <v-navigation-drawer>
       <div class="flex items-center gap-2 p-5">
         <v-avatar color="primary" size="34" rounded="lg">
           <v-icon icon="mdi-hexagon-multiple" size="20" />
@@ -61,9 +63,7 @@
       </v-menu>
     </v-app-bar>
 
-    <!-- 主内容区独立滚动：h-screen 锁定视口高度（含顶栏内边距补偿），
-         长内容只在 v-main 内部产生滚动条，侧栏/顶栏保持固定 -->
-    <v-main class="h-screen overflow-y-auto">
+    <v-main>
       <v-container fluid class="p-5">
         <!-- 页面切换过渡：reverse 变体让新页面从左侧进入、向右滑出（即"从左往右"），
              mode=out-in 避免新旧页面同屏叠放 -->
@@ -74,7 +74,6 @@
         </router-view>
       </v-container>
     </v-main>
-  </v-app>
 </template>
 
 <script setup lang="ts">
