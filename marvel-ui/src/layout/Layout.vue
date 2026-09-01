@@ -64,18 +64,20 @@
     </v-app-bar>
 
     <!-- scrollable：v-main 绝对定位铺满可视区（自动避开 app-bar/drawer），
-         内容在 main 区域内部滚动而非整页滚动；配合容器 h-full 可做满高页面；
-         relative 供页面过渡时离场页绝对定位叠放（见 page-transition.css） -->
+         内容在 main 区域内部滚动而非整页滚动；配合容器 h-full 可做满高页面 -->
     <v-main scrollable>
-      <v-container fluid class="p-5 h-full flex flex-col relative">
-        <!-- 页面切换过渡（原生 Transition + 自定义样式，见 styles/page-transition.css）。
-             不用 mode=out-in：与懒加载路由组件组合时 leave 完成后的重渲染链路
-             会静默断裂（新页永不插入、整页空白且不可恢复），改为新旧同时过渡、
-             离场页绝对定位叠放滑出，视觉等效且无死锁风险 -->
+      <v-container fluid class="p-5 h-full flex flex-col">
+        <!-- 页面切换过渡：Vuetify 官方站点同款做法——过渡组件 + hide-on-leave +
+             key 挂在中间 div 上。不用 mode=out-in：其 leave 完成后的重渲染链路
+             存在已确认的缺陷（vuejs/core#11824，官方未发版），会导致新页永不
+             插入、整页空白；hide-on-leave 让离场页立即 display:none 脱离布局，
+             进场页从左滑入，无叠放且无死锁 -->
         <router-view v-slot="{ Component, route }">
-          <Transition name="page">
-            <component :is="Component" :key="route.path" />
-          </Transition>
+          <v-scroll-x-transition hide-on-leave>
+            <div :key="route.path" class="flex-1 min-h-0 flex flex-col">
+              <component :is="Component" />
+            </div>
+          </v-scroll-x-transition>
         </router-view>
       </v-container>
     </v-main>
@@ -85,7 +87,6 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import '@/styles/page-transition.css'
 
 const auth = useAuthStore()
 const router = useRouter()
