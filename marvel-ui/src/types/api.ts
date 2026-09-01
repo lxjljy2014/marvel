@@ -131,6 +131,8 @@ export interface SysMenuRow {
   createTime: string
   /** 树形接口返回时存在 */
   children?: SysMenuRow[] | null
+  /** 懒加载接口返回：是否存在子菜单 */
+  hasChild?: boolean | null
 }
 
 /** 用户详情响应 */

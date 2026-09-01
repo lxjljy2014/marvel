@@ -49,4 +49,8 @@ public class SysMenu {
     /** 非表字段：子菜单（树形接口返回用） */
     @TableField(exist = false)
     private List<SysMenu> children;
+
+    /** 非表字段：是否存在子菜单（懒加载展开箭头标记） */
+    @TableField(exist = false)
+    private Boolean hasChild;
 }

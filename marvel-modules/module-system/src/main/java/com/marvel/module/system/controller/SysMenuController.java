@@ -4,6 +4,7 @@ import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.marvel.common.result.R;
 import com.marvel.module.system.entity.SysMenu;
 import com.marvel.module.system.service.SysMenuService;
+import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,14 +30,20 @@ public class SysMenuController {
     }
 
     /**
-     * 树形菜单列表（菜单管理页表格使用）。
-     * 按名称搜索时保留命中节点的祖先链，树形结构完整可展开。
+     * 菜单树（懒加载）：
+     * - 带 menuName：返回完整树（保留命中节点祖先链），供搜索场景一次展示；
+     * - 不带 menuName：parentId 为空返回根节点，否则返回其直接子节点，
+     *   每个节点带 hasChild 标记，前端按需展开加载，避免全量拉取。
      */
     @SaCheckPermission("system:menu:list")
     @GetMapping("/tree")
-    public R<List<SysMenu>> tree(@RequestParam(required = false) String menuName,
+    public R<List<SysMenu>> tree(@RequestParam(required = false) Long parentId,
+                                 @RequestParam(required = false) String menuName,
                                  @RequestParam(required = false) String status) {
-        return R.ok(menuService.listTree(menuName, status));
+        if (StringUtils.hasText(menuName)) {
+            return R.ok(menuService.listTree(menuName, status));
+        }
+        return R.ok(menuService.listLevel(parentId, status));
     }
 
     @SaCheckPermission("system:menu:query")

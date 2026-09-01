@@ -62,6 +62,33 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         return buildMenuTree(kept);
     }
 
+    /**
+     * 懒加载单层节点：parentId 为空视为根（0）。
+     * hasChild 通过一次 IN 查询批量标记，避免逐行 N+1。
+     */
+    @Override
+    public List<SysMenu> listLevel(Long parentId, String status) {
+        List<SysMenu> nodes = list(new LambdaQueryWrapper<SysMenu>()
+                .eq(SysMenu::getParentId, parentId == null ? 0L : parentId)
+                .eq(StringUtils.hasText(status), SysMenu::getStatus, status)
+                .orderByAsc(SysMenu::getOrderNum));
+        fillHasChild(nodes);
+        return nodes;
+    }
+
+    /** 批量标记 hasChild：一次查出这些节点的子节点 parent_id 集合 */
+    private void fillHasChild(List<SysMenu> nodes) {
+        if (nodes.isEmpty()) {
+            return;
+        }
+        List<Long> ids = nodes.stream().map(SysMenu::getMenuId).toList();
+        Set<Long> parentsWithChild = list(new LambdaQueryWrapper<SysMenu>()
+                        .select(SysMenu::getParentId)
+                        .in(SysMenu::getParentId, ids))
+                .stream().map(SysMenu::getParentId).collect(Collectors.toSet());
+        nodes.forEach(n -> n.setHasChild(parentsWithChild.contains(n.getMenuId())));
+    }
+
     /** 组装实体树：父节点不在集合内的节点视为根，防止脏数据丢失 */
     private List<SysMenu> buildMenuTree(List<SysMenu> menus) {
         Set<Long> ids = menus.stream().map(SysMenu::getMenuId).collect(Collectors.toSet());

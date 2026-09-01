@@ -68,9 +68,9 @@
         <!-- 页面切换过渡：reverse 变体让新页面从左侧进入、向右滑出（即"从左往右"），
              mode=out-in 避免新旧页面同屏叠放 -->
         <router-view v-slot="{ Component, route }">
-          <v-slide-x-reverse-transition mode="out-in" appear>
+          <v-scroll-x-transition mode="out-in">
             <component :is="Component" :key="route.path" />
-          </v-slide-x-reverse-transition>
+          </v-scroll-x-transition>
         </router-view>
       </v-container>
     </v-main>

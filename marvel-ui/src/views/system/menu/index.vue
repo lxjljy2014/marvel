@@ -27,7 +27,7 @@
       <template #item.menuName="{ item }">
         <div class="d-flex align-center" :style="{ paddingLeft: item.depth * 28 + 'px' }">
           <v-btn
-            v-if="item.children?.length"
+            v-if="item.children?.length || item.hasChild"
             :icon="expandedIds.has(String(item.menuId)) ? 'mdi-menu-down' : 'mdi-menu-right'"
             size="x-small"
             variant="text"
@@ -168,10 +168,10 @@ function notify(text: string, color: 'success' | 'error' = 'success'): void {
 async function load(): Promise<void> {
   loading.value = true
   try {
+    // 懒加载：默认只取根节点，自动折叠
     tree.value = await http.get<SysMenuRow[]>('/system/menu/tree')
-    // 默认展开全部节点
-    expandedIds.value = new Set(collectIds(tree.value))
-    refreshParentOptions()
+    expandedIds.value = new Set()
+    void refreshParentOptions()
   } catch (e) {
     notify(e instanceof Error ? e.message : '加载失败', 'error')
   } finally {
@@ -179,38 +179,51 @@ async function load(): Promise<void> {
   }
 }
 
-/** 切换节点展开/收起（替换整个 Set 以触发响应式更新） */
-function toggleExpand(item: SysMenuRow): void {
+/**
+ * 展开/收起节点。首次展开时懒加载子节点（已加载过则使用缓存）。
+ * 注意：表格行是 flatRows 拍平时的浅拷贝，子节点必须写回 tree 源节点。
+ */
+async function toggleExpand(item: SysMenuRow): Promise<void> {
   const key = String(item.menuId)
   const next = new Set(expandedIds.value)
   if (next.has(key)) {
     next.delete(key)
-  } else {
-    next.add(key)
+    expandedIds.value = next
+    return
   }
+  const node = findNode(tree.value, item.menuId)
+  if (!node) return
+  if (node.hasChild && !Array.isArray(node.children)) {
+    try {
+      node.children = await http.get<SysMenuRow[]>('/system/menu/tree', {
+        params: { parentId: node.menuId },
+      })
+    } catch (e) {
+      notify(e instanceof Error ? e.message : '子节点加载失败', 'error')
+      return
+    }
+  }
+  next.add(key)
   expandedIds.value = next
 }
 
-/** 递归收集全部节点 id（用于默认展开） */
-function collectIds(menus: SysMenuRow[], acc: string[] = []): string[] {
+/** 在树中按 id 查找源节点 */
+function findNode(menus: SysMenuRow[], id: number): SysMenuRow | undefined {
   for (const m of menus) {
-    acc.push(String(m.menuId))
-    if (m.children?.length) collectIds(m.children, acc)
+    if (m.menuId === id) return m
+    const hit = m.children?.length ? findNode(m.children, id) : undefined
+    if (hit) return hit
   }
-  return acc
+  return undefined
 }
 
-/** 树拍平为下拉选项（按钮不能作为上级菜单，过滤掉） */
-function refreshParentOptions(): void {
-  const flat: SysMenuRow[] = []
-  const walk = (menus: SysMenuRow[]): void => {
-    for (const m of menus) {
-      if (m.menuType !== 'F') flat.push(m)
-      if (m.children?.length) walk(m.children)
-    }
-  }
-  walk(tree.value)
-  parentOptions.value = [{ menuId: 0, menuName: '根目录' } as SysMenuRow, ...flat]
+/** 上级菜单下拉选项：取平铺全量列表（懒加载树不完整），按钮不能作为上级 */
+async function refreshParentOptions(): Promise<void> {
+  const all = await http.get<SysMenuRow[]>('/system/menu/list')
+  parentOptions.value = [
+    { menuId: 0, menuName: '根目录' } as SysMenuRow,
+    ...all.filter((m) => m.menuType !== 'F'),
+  ]
 }
 
 /** parent 为空表示新增根节点 */
