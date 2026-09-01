@@ -2,11 +2,11 @@
   <!-- 列表卡：标题工具栏 + 默认插槽（表格）。fill=true 时占满父容器剩余高度，
        表格配 fixed-header 即形成表体内部滚动；dict 主从双栏用 fill=false 自定宽度 -->
   <v-card rounded="lg" :class="fill ? 'flex-1 min-h-0 flex flex-col' : 'min-h-0 flex flex-col'">
-    <v-toolbar flat density="comfortable" color="transparent">
-      <v-toolbar-title class="text-h6 font-bold">{{ title }}</v-toolbar-title>
+    <v-card-title flat density="comfortable" class="flex items-center">
+      <span>{{ title }}</span>
       <v-spacer />
       <slot name="actions" />
-    </v-toolbar>
+    </v-card-title>
     <v-divider />
     <slot />
   </v-card>

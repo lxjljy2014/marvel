@@ -40,6 +40,14 @@ export default createVuetify({
     VCard: {
       elevation: 2
     },
+    VExpansionPanels: {
+      static: true,
+      hover: false,
+      elevation: 2
+    },
+    // VExpansionPanel: {
+      
+    // }, 
     VTextField: { variant: 'outlined', density: 'comfortable' },
     VSelect: { variant: 'outlined', density: 'comfortable' },
     VDataTable: { rounded: 'lg' },

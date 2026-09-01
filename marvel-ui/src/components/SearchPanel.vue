@@ -4,7 +4,6 @@
   <v-expansion-panels v-model="opened" rounded="lg">
     <v-expansion-panel value="search">
       <v-expansion-panel-title
-        class="text-subtitle-1 font-weight-bold"
         expand-icon="mdi-chevron-up"
         collapse-icon="mdi-chevron-down"
       >

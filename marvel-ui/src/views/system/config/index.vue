@@ -1,6 +1,6 @@
 <template>
   <!-- 满高两段式布局：上=搜索条件（可折叠），下=列表（占满剩余高度，表格内部滚动） -->
-  <div class="h-full flex flex-col gap-5">
+  <div class="h-full flex flex-col gap-4">
     <SearchPanel @search="load" @reset="onReset">
       <v-col cols="12" sm="6" md="3">
         <v-text-field

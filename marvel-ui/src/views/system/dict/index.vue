@@ -1,7 +1,7 @@
 <template>
   <!-- 上=字典类型搜索（可折叠），下=主从双栏列表：左类型（点击行选中）、右数据，
        两栏各自占满剩余高度、表体内部滚动 -->
-  <div class="h-full flex flex-col gap-5">
+  <div class="h-full flex flex-col gap-4">
     <SearchPanel @search="loadTypes" @reset="onReset">
       <v-col cols="12" sm="6" md="3">
         <v-text-field
@@ -35,7 +35,7 @@
       </v-col>
     </SearchPanel>
 
-    <div class="flex-1 min-h-0 flex flex-col md:flex-row gap-5">
+    <div class="flex-1 min-h-0 flex flex-col md:flex-row gap-4">
       <!-- 左：字典类型（选中行驱动右栏） -->
       <ListPanel :fill="false" title="字典类型" class="w-full md:w-2/5">
         <template #actions>
