@@ -1,75 +1,102 @@
 <template>
-  <v-card>
-    <v-toolbar flat density="comfortable" color="transparent">
-      <v-toolbar-title class="text-h6 font-bold">菜单管理</v-toolbar-title>
-      <v-spacer />
-      <v-btn
-        v-if="auth.hasPerm('system:menu:add')"
-        color="success"
-        prepend-icon="mdi-plus"
-        @click="openAdd()"
-      >
-        新增
-      </v-btn>
-    </v-toolbar>
+  <!-- 满高两段式布局：上=搜索条件（可折叠），下=树表（占满剩余高度，表体内部滚动） -->
+  <div class="h-full flex flex-col gap-5">
+    <SearchPanel @search="load" @reset="onReset">
+      <v-col cols="12" sm="6" md="3">
+        <v-text-field
+          v-model="query.menuName"
+          label="菜单名称"
+          density="compact"
+          hide-details
+          clearable
+          @keyup.enter="load"
+        />
+      </v-col>
+      <v-col cols="12" sm="6" md="3">
+        <v-select
+          v-model="query.status"
+          :items="STATUS_OPTIONS"
+          label="状态"
+          density="compact"
+          hide-details
+          clearable
+        />
+      </v-col>
+    </SearchPanel>
 
-    <!-- 树形表格：v-data-table 不支持 children 树形数据，采用「展开集合 + 拍平渲染」
-         方案——menuName 列按层级缩进并提供展开箭头，其余列仍由组件库承担 -->
-    <v-data-table
-      :headers="headers"
-      :items="flatRows"
-      item-value="menuId"
-      :loading="loading"
-      hover
-      :items-per-page="-1"
-      hide-default-footer
-    >
-      <template #item.menuName="{ item }">
-        <div class="d-flex align-center" :style="{ paddingLeft: item.depth * 28 + 'px' }">
-          <v-btn
-            v-if="item.children?.length || item.hasChild"
-            :icon="expandedIds.has(String(item.menuId)) ? 'mdi-menu-down' : 'mdi-menu-right'"
-            size="x-small"
-            variant="text"
-            class="mr-1"
-            @click.stop="toggleExpand(item)"
-          />
-          <span v-else class="mr-7" />
-          <span>{{ item.menuName }}</span>
-        </div>
-      </template>
-      <template #item.menuType="{ item }">
-        <v-chip
-          size="small"
-          label
-          :color="item.menuType === 'M' ? 'info' : item.menuType === 'C' ? 'primary' : 'default'"
+    <ListPanel title="菜单列表">
+      <template #actions>
+        <v-btn
+          v-if="auth.hasPerm('system:menu:add')"
+          color="success"
+          prepend-icon="mdi-plus"
+          rounded="lg"
+          @click="openAdd()"
         >
-          {{ MENU_TYPE_TEXT[item.menuType] }}
-        </v-chip>
+          新增
+        </v-btn>
       </template>
-      <template #item.status="{ item }">
-        <v-chip :color="item.status === '0' ? 'success' : 'error'" size="small" label>
-          {{ item.status === '0' ? '正常' : '停用' }}
-        </v-chip>
-      </template>
-      <template #item.actions="{ item }">
-        <v-tooltip v-if="auth.hasPerm('system:menu:add')" text="添加子菜单">
-          <template #activator="{ props: p }">
-            <v-icon v-bind="p" icon="mdi-plus" size="18" class="mr-3 text-secondary" @click="openAdd(item)" />
-          </template>
-        </v-tooltip>
-        <v-tooltip v-if="auth.hasPerm('system:menu:edit')" text="编辑">
-          <template #activator="{ props: p }">
-            <v-icon v-bind="p" icon="mdi-pencil" size="18" class="mr-3 text-secondary" @click="openEdit(item)" />
-          </template>
-        </v-tooltip>
-        <v-tooltip v-if="auth.hasPerm('system:menu:remove')" text="删除">
-          <template #activator="{ props: p }">
-            <v-icon v-bind="p" icon="mdi-delete" size="18" class="text-error" @click="onDelete(item)" />
-          </template>
-        </v-tooltip>
-      </template>
-    </v-data-table>
+
+      <!-- 树形表格：v-data-table 不支持 children 树形数据，采用「展开集合 + 拍平渲染」
+           方案——menuName 列按层级缩进并提供展开箭头，其余列仍由组件库承担 -->
+      <v-data-table
+        class="flex-1 min-h-0"
+        fixed-header
+        :headers="headers"
+        :items="flatRows"
+        item-value="menuId"
+        :loading="loading"
+        hover
+        :items-per-page="-1"
+        hide-default-footer
+      >
+        <template #item.menuName="{ item }">
+          <div class="d-flex align-center" :style="{ paddingLeft: item.depth * 28 + 'px' }">
+            <v-btn
+              v-if="item.children?.length || item.hasChild"
+              :icon="expandedIds.has(String(item.menuId)) ? 'mdi-menu-down' : 'mdi-menu-right'"
+              size="x-small"
+              variant="text"
+              class="mr-1"
+              @click.stop="toggleExpand(item)"
+            />
+            <span v-else class="mr-7" />
+            <span>{{ item.menuName }}</span>
+          </div>
+        </template>
+        <template #item.menuType="{ item }">
+          <v-chip
+            size="small"
+            label
+            :color="item.menuType === 'M' ? 'info' : item.menuType === 'C' ? 'primary' : 'default'"
+          >
+            {{ MENU_TYPE_TEXT[item.menuType] }}
+          </v-chip>
+        </template>
+        <template #item.status="{ item }">
+          <v-chip :color="item.status === '0' ? 'success' : 'error'" size="small" label>
+            {{ item.status === '0' ? '正常' : '停用' }}
+          </v-chip>
+        </template>
+        <template #item.actions="{ item }">
+          <v-tooltip v-if="auth.hasPerm('system:menu:add')" text="添加子菜单">
+            <template #activator="{ props: p }">
+              <v-icon v-bind="p" icon="mdi-plus" size="18" class="mr-3 text-secondary" @click="openAdd(item)" />
+            </template>
+          </v-tooltip>
+          <v-tooltip v-if="auth.hasPerm('system:menu:edit')" text="编辑">
+            <template #activator="{ props: p }">
+              <v-icon v-bind="p" icon="mdi-pencil" size="18" class="mr-3 text-secondary" @click="openEdit(item)" />
+            </template>
+          </v-tooltip>
+          <v-tooltip v-if="auth.hasPerm('system:menu:remove')" text="删除">
+            <template #activator="{ props: p }">
+              <v-icon v-bind="p" icon="mdi-delete" size="18" class="text-error" @click="onDelete(item)" />
+            </template>
+          </v-tooltip>
+        </template>
+      </v-data-table>
+    </ListPanel>
 
     <v-dialog v-model="dialog" width="560">
       <v-card :title="form.menuId ? '修改菜单' : '新增菜单'" rounded="xl">
@@ -105,11 +132,13 @@
     </v-dialog>
 
     <v-snackbar v-model="snack.show" :color="snack.color" timeout="3000">{{ snack.text }}</v-snackbar>
-  </v-card>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import SearchPanel from '@/components/SearchPanel.vue'
+import ListPanel from '@/components/ListPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/request'
 import { clearObject } from '@/utils/object'
@@ -121,6 +150,11 @@ const MENU_TYPE_TEXT: Record<SysMenuRow['menuType'], string> = {
   F: '按钮',
 }
 
+const STATUS_OPTIONS = [
+  { title: '正常', value: '0' },
+  { title: '停用', value: '1' },
+]
+
 /** 拍平后的行：depth 用于 menuName 列缩进 */
 type FlatMenuRow = SysMenuRow & { depth: number }
 
@@ -129,9 +163,10 @@ const auth = useAuthStore()
 const tree = ref<SysMenuRow[]>([])
 const loading = ref(false)
 const dialog = ref(false)
-/** 展开节点 id 集合；加载后默认全部展开 */
+/** 展开节点 id 集合；懒加载模式下默认折叠 */
 const expandedIds = ref<Set<string>>(new Set())
 const parentOptions = ref<SysMenuRow[]>([])
+const query = reactive({ menuName: '' as string | null, status: '' as string | null })
 const form = reactive<Partial<SysMenuRow>>({})
 const snack = reactive({ show: false, text: '', color: 'success' })
 
@@ -168,15 +203,40 @@ function notify(text: string, color: 'success' | 'error' = 'success'): void {
 async function load(): Promise<void> {
   loading.value = true
   try {
-    // 懒加载：默认只取根节点，自动折叠
-    tree.value = await http.get<SysMenuRow[]>('/system/menu/tree')
-    expandedIds.value = new Set()
+    // 有菜单名称 → 后端返回带祖先链的完整树，自动全部展开；
+    // 否则懒加载：只取根节点（可带状态过滤），默认折叠
+    const searching = !!query.menuName
+    tree.value = await http.get<SysMenuRow[]>('/system/menu/tree', {
+      params: { menuName: query.menuName || undefined, status: query.status || undefined },
+    })
+    expandedIds.value = searching ? collectIds(tree.value) : new Set()
     void refreshParentOptions()
   } catch (e) {
     notify(e instanceof Error ? e.message : '加载失败', 'error')
   } finally {
     loading.value = false
   }
+}
+
+function onReset(): void {
+  query.menuName = null
+  query.status = null
+  void load()
+}
+
+/** 收集树中所有有子节点的 id，用于搜索结果全展开 */
+function collectIds(menus: SysMenuRow[]): Set<string> {
+  const ids = new Set<string>()
+  const walk = (nodes: SysMenuRow[]): void => {
+    for (const n of nodes) {
+      if (n.children?.length) {
+        ids.add(String(n.menuId))
+        walk(n.children)
+      }
+    }
+  }
+  walk(menus)
+  return ids
 }
 
 /**
@@ -196,7 +256,7 @@ async function toggleExpand(item: SysMenuRow): Promise<void> {
   if (node.hasChild && !Array.isArray(node.children)) {
     try {
       node.children = await http.get<SysMenuRow[]>('/system/menu/tree', {
-        params: { parentId: node.menuId },
+        params: { parentId: node.menuId, status: query.status || undefined },
       })
     } catch (e) {
       notify(e instanceof Error ? e.message : '子节点加载失败', 'error')

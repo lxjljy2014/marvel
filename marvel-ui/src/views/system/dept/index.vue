@@ -1,42 +1,75 @@
 <template>
-  <v-card>
-    <v-toolbar flat density="comfortable" color="transparent">
-      <v-toolbar-title class="text-h6 font-bold">部门管理</v-toolbar-title>
-      <v-spacer />
-      <v-btn
-        v-if="auth.hasPerm('system:dept:add')"
-        color="success"
-        prepend-icon="mdi-plus"
-        @click="openAdd()"
-      >
-        新增
-      </v-btn>
-    </v-toolbar>
+  <!-- 满高两段式布局：上=搜索条件（可折叠），下=列表（占满剩余高度，表格内部滚动） -->
+  <div class="h-full flex flex-col gap-5">
+    <SearchPanel @search="load" @reset="onReset">
+      <v-col cols="12" sm="6" md="3">
+        <v-text-field
+          v-model="query.deptName"
+          label="部门名称"
+          density="compact"
+          hide-details
+          clearable
+          @keyup.enter="load"
+        />
+      </v-col>
+      <v-col cols="12" sm="6" md="3">
+        <v-select
+          v-model="query.status"
+          :items="STATUS_OPTIONS"
+          label="状态"
+          density="compact"
+          hide-details
+          clearable
+        />
+      </v-col>
+    </SearchPanel>
 
-    <v-data-table :headers="headers" :items="rows" item-value="deptId" :loading="loading" hover>
-      <template #item.status="{ item }">
-        <v-chip :color="item.status === '0' ? 'success' : 'error'" size="small" label>
-          {{ item.status === '0' ? '正常' : '停用' }}
-        </v-chip>
+    <ListPanel title="部门列表">
+      <template #actions>
+        <v-btn
+          v-if="auth.hasPerm('system:dept:add')"
+          color="success"
+          prepend-icon="mdi-plus"
+          rounded="lg"
+          @click="openAdd()"
+        >
+          新增
+        </v-btn>
       </template>
-      <template #item.actions="{ item }">
-        <v-tooltip v-if="auth.hasPerm('system:dept:add')" text="添加子部门">
-          <template #activator="{ props: p }">
-            <v-icon v-bind="p" icon="mdi-plus" size="18" class="mr-3 text-secondary" @click="openAdd(item)" />
-          </template>
-        </v-tooltip>
-        <v-tooltip v-if="auth.hasPerm('system:dept:edit')" text="编辑">
-          <template #activator="{ props: p }">
-            <v-icon v-bind="p" icon="mdi-pencil" size="18" class="mr-3 text-secondary" @click="openEdit(item)" />
-          </template>
-        </v-tooltip>
-        <v-tooltip v-if="auth.hasPerm('system:dept:remove')" text="删除">
-          <template #activator="{ props: p }">
-            <v-icon v-bind="p" icon="mdi-delete" size="18" class="text-error" @click="onDelete(item)" />
-          </template>
-        </v-tooltip>
-      </template>
-    </v-data-table>
+
+      <v-data-table
+        class="flex-1 min-h-0"
+        fixed-header
+        :headers="headers"
+        :items="rows"
+        item-value="deptId"
+        :loading="loading"
+        hover
+      >
+        <template #item.status="{ item }">
+          <v-chip :color="item.status === '0' ? 'success' : 'error'" size="small" label>
+            {{ item.status === '0' ? '正常' : '停用' }}
+          </v-chip>
+        </template>
+        <template #item.actions="{ item }">
+          <v-tooltip v-if="auth.hasPerm('system:dept:add')" text="添加子部门">
+            <template #activator="{ props: p }">
+              <v-icon v-bind="p" icon="mdi-plus" size="18" class="mr-3 text-secondary" @click="openAdd(item)" />
+            </template>
+          </v-tooltip>
+          <v-tooltip v-if="auth.hasPerm('system:dept:edit')" text="编辑">
+            <template #activator="{ props: p }">
+              <v-icon v-bind="p" icon="mdi-pencil" size="18" class="mr-3 text-secondary" @click="openEdit(item)" />
+            </template>
+          </v-tooltip>
+          <v-tooltip v-if="auth.hasPerm('system:dept:remove')" text="删除">
+            <template #activator="{ props: p }">
+              <v-icon v-bind="p" icon="mdi-delete" size="18" class="text-error" @click="onDelete(item)" />
+            </template>
+          </v-tooltip>
+        </template>
+      </v-data-table>
+    </ListPanel>
 
     <v-dialog v-model="dialog" width="560">
       <v-card :title="form.deptId ? '修改部门' : '新增部门'" rounded="xl">
@@ -62,21 +95,29 @@
     </v-dialog>
 
     <v-snackbar v-model="snack.show" :color="snack.color" timeout="3000">{{ snack.text }}</v-snackbar>
-  </v-card>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import SearchPanel from '@/components/SearchPanel.vue'
+import ListPanel from '@/components/ListPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/request'
 import { clearObject } from '@/utils/object'
 import type { SysDeptRow } from '@/types/api'
+
+const STATUS_OPTIONS = [
+  { title: '正常', value: '0' },
+  { title: '停用', value: '1' },
+]
 
 const auth = useAuthStore()
 const rows = ref<SysDeptRow[]>([])
 const loading = ref(false)
 const dialog = ref(false)
 const parentOptions = ref<SysDeptRow[]>([])
+const query = reactive({ deptName: '' as string | null, status: '' as string | null })
 const form = reactive<Partial<SysDeptRow>>({})
 const snack = reactive({ show: false, text: '', color: 'success' })
 
@@ -97,12 +138,18 @@ function notify(text: string, color: 'success' | 'error' = 'success'): void {
 async function load(): Promise<void> {
   loading.value = true
   try {
-    rows.value = await http.get<SysDeptRow[]>('/system/dept/list')
+    rows.value = await http.get<SysDeptRow[]>('/system/dept/list', { params: { ...query } })
   } catch (e) {
     notify(e instanceof Error ? e.message : '加载失败', 'error')
   } finally {
     loading.value = false
   }
+}
+
+function onReset(): void {
+  query.deptName = null
+  query.status = null
+  void load()
 }
 
 async function openAdd(parent?: SysDeptRow): Promise<void> {
@@ -113,14 +160,15 @@ async function openAdd(parent?: SysDeptRow): Promise<void> {
     orderNum: 0,
     status: '0',
   })
-  parentOptions.value = [...rows.value]
+  // 上级部门下拉取全量列表，不受当前搜索条件过滤影响
+  parentOptions.value = await http.get<SysDeptRow[]>('/system/dept/list')
   dialog.value = true
 }
 
 async function openEdit(item: SysDeptRow): Promise<void> {
   clearObject(form)
   Object.assign(form, item)
-  parentOptions.value = [...rows.value]
+  parentOptions.value = await http.get<SysDeptRow[]>('/system/dept/list')
   dialog.value = true
 }
 

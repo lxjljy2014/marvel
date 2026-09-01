@@ -1,43 +1,65 @@
 <template>
-  <v-card class="border-thin">
-    <v-toolbar flat density="comfortable" color="transparent">
-      <v-toolbar-title class="text-h6 font-bold">参数配置</v-toolbar-title>
-      <v-spacer />
-      <v-text-field
-        v-model="query.configKey"
-        label="参数键名"
-        density="compact"
-        hide-details
-        class="mr-2"
-        style="max-width: 160px"
-        @keyup.enter="load"
-      />
-      <v-btn color="primary" prepend-icon="mdi-magnify" @click="load">搜索</v-btn>
-      <v-btn
-        v-if="auth.hasPerm('system:config:add')"
-        color="success"
-        prepend-icon="mdi-plus"
-        class="ml-2"
-        @click="openAdd"
-      >
-        新增
-      </v-btn>
-    </v-toolbar>
+  <!-- 满高两段式布局：上=搜索条件（可折叠），下=列表（占满剩余高度，表格内部滚动） -->
+  <div class="h-full flex flex-col gap-5">
+    <SearchPanel @search="load" @reset="onReset">
+      <v-col cols="12" sm="6" md="3">
+        <v-text-field
+          v-model="query.configName"
+          label="参数名称"
+          density="compact"
+          hide-details
+          clearable
+          @keyup.enter="load"
+        />
+      </v-col>
+      <v-col cols="12" sm="6" md="3">
+        <v-text-field
+          v-model="query.configKey"
+          label="参数键名"
+          density="compact"
+          hide-details
+          clearable
+          @keyup.enter="load"
+        />
+      </v-col>
+    </SearchPanel>
 
-    <v-data-table :headers="headers" :items="rows" item-value="configId" :loading="loading" hover>
-      <template #item.actions="{ item }">
-        <v-tooltip v-if="auth.hasPerm('system:config:edit')" text="编辑">
-          <template #activator="{ props: p }">
-            <v-icon v-bind="p" icon="mdi-pencil" size="18" class="mr-3 text-secondary" @click="openEdit(item)" />
-          </template>
-        </v-tooltip>
-        <v-tooltip v-if="auth.hasPerm('system:config:remove')" text="删除">
-          <template #activator="{ props: p }">
-            <v-icon v-bind="p" icon="mdi-delete" size="18" class="text-error" @click="onDelete(item)" />
-          </template>
-        </v-tooltip>
+    <ListPanel title="参数列表">
+      <template #actions>
+        <v-btn
+          v-if="auth.hasPerm('system:config:add')"
+          color="success"
+          prepend-icon="mdi-plus"
+          rounded="lg"
+          @click="openAdd"
+        >
+          新增
+        </v-btn>
       </template>
-    </v-data-table>
+
+      <v-data-table
+        class="flex-1 min-h-0"
+        fixed-header
+        :headers="headers"
+        :items="rows"
+        item-value="configId"
+        :loading="loading"
+        hover
+      >
+        <template #item.actions="{ item }">
+          <v-tooltip v-if="auth.hasPerm('system:config:edit')" text="编辑">
+            <template #activator="{ props: p }">
+              <v-icon v-bind="p" icon="mdi-pencil" size="18" class="mr-3 text-secondary" @click="openEdit(item)" />
+            </template>
+          </v-tooltip>
+          <v-tooltip v-if="auth.hasPerm('system:config:remove')" text="删除">
+            <template #activator="{ props: p }">
+              <v-icon v-bind="p" icon="mdi-delete" size="18" class="text-error" @click="onDelete(item)" />
+            </template>
+          </v-tooltip>
+        </template>
+      </v-data-table>
+    </ListPanel>
 
     <v-dialog v-model="dialog" width="520">
       <v-card :title="form.configId ? '修改参数' : '新增参数'" rounded="xl">
@@ -56,11 +78,13 @@
     </v-dialog>
 
     <v-snackbar v-model="snack.show" :color="snack.color" timeout="3000">{{ snack.text }}</v-snackbar>
-  </v-card>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import SearchPanel from '@/components/SearchPanel.vue'
+import ListPanel from '@/components/ListPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/request'
 import { clearObject } from '@/utils/object'
@@ -70,7 +94,7 @@ const auth = useAuthStore()
 const rows = ref<SysConfigRow[]>([])
 const loading = ref(false)
 const dialog = ref(false)
-const query = reactive({ configKey: '' })
+const query = reactive({ configName: '' as string | null, configKey: '' as string | null })
 const form = reactive<Partial<SysConfigRow>>({})
 const snack = reactive({ show: false, text: '', color: 'success' })
 
@@ -97,6 +121,12 @@ async function load(): Promise<void> {
   } finally {
     loading.value = false
   }
+}
+
+function onReset(): void {
+  query.configName = null
+  query.configKey = null
+  void load()
 }
 
 function openAdd(): void {

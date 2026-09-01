@@ -1,84 +1,53 @@
 <template>
   <!-- 满高两段式布局：上=搜索条件（可折叠），下=列表（flex-1 占满剩余高度，表格内部滚动） -->
   <div class="h-full flex flex-col gap-5">
-    <v-card rounded="lg">
-      <v-toolbar flat density="comfortable" color="transparent">
-        <v-toolbar-title class="text-subtitle-1 font-weight-bold">搜索条件</v-toolbar-title>
-        <v-spacer />
-        <v-btn
-          variant="text"
-          rounded="lg"
-          :append-icon="showSearch ? 'mdi-chevron-up' : 'mdi-chevron-down'"
-          @click="showSearch = !showSearch"
-        >
-          {{ showSearch ? '收起' : '展开' }}
-        </v-btn>
-      </v-toolbar>
+    <SearchPanel @search="onSearch" @reset="onReset">
+      <v-col cols="12" sm="6" md="3">
+        <v-text-field
+          v-model="query.username"
+          label="用户名"
+          density="compact"
+          hide-details
+          clearable
+          @keyup.enter="onSearch"
+        />
+      </v-col>
+      <v-col cols="12" sm="6" md="3">
+        <v-text-field
+          v-model="query.nickname"
+          label="昵称"
+          density="compact"
+          hide-details
+          clearable
+          @keyup.enter="onSearch"
+        />
+      </v-col>
+      <v-col cols="12" sm="6" md="3">
+        <v-select
+          v-model="query.status"
+          :items="STATUS_OPTIONS"
+          label="状态"
+          density="compact"
+          hide-details
+          clearable
+        />
+      </v-col>
+      <v-col cols="12" sm="6" md="3">
+        <v-select
+          v-model="query.deptId"
+          :items="deptOptions"
+          item-title="deptName"
+          item-value="deptId"
+          label="部门"
+          density="compact"
+          hide-details
+          clearable
+        />
+      </v-col>
+    </SearchPanel>
 
-      <!-- v-expand-transition 包 v-show 实现平滑折叠/展开 -->
-      <v-expand-transition>
-        <div v-show="showSearch">
-          <v-divider />
-          <v-card-text>
-            <v-row>
-              <v-col cols="12" sm="6" md="3">
-                <v-text-field
-                  v-model="query.username"
-                  label="用户名"
-                  density="compact"
-                  hide-details
-                  clearable
-                  @keyup.enter="onSearch"
-                />
-              </v-col>
-              <v-col cols="12" sm="6" md="3">
-                <v-text-field
-                  v-model="query.nickname"
-                  label="昵称"
-                  density="compact"
-                  hide-details
-                  clearable
-                  @keyup.enter="onSearch"
-                />
-              </v-col>
-              <v-col cols="12" sm="6" md="3">
-                <v-select
-                  v-model="query.status"
-                  :items="STATUS_OPTIONS"
-                  label="状态"
-                  density="compact"
-                  hide-details
-                  clearable
-                />
-              </v-col>
-              <v-col cols="12" sm="6" md="3">
-                <v-select
-                  v-model="query.deptId"
-                  :items="deptOptions"
-                  item-title="deptName"
-                  item-value="deptId"
-                  label="部门"
-                  density="compact"
-                  hide-details
-                  clearable
-                />
-              </v-col>
-              <v-col cols="12" class="text-right">
-                <v-btn color="primary" prepend-icon="mdi-magnify" @click="onSearch">搜索</v-btn>
-                <v-btn class="ml-3" prepend-icon="mdi-refresh" @click="onReset">重置</v-btn>
-              </v-col>
-            </v-row>
-          </v-card-text>
-        </div>
-      </v-expand-transition>
-    </v-card>
-
-    <!-- v-card 默认 block，改为 flex 列让表格吃掉剩余高度；
-         min-h-0 防止 flex 子项被内容撑开 -->
-    <v-card rounded="lg" class="flex-1 min-h-0 flex flex-col">
-      <v-toolbar flat density="comfortable" color="transparent">
-        <v-toolbar-title class="text-h6 font-bold">用户列表</v-toolbar-title>
-        <v-spacer />
+    <ListPanel title="用户列表">
+      <template #actions>
         <v-btn
           v-if="auth.hasPerm('system:user:add')"
           color="success"
@@ -88,8 +57,7 @@
         >
           新增
         </v-btn>
-      </v-toolbar>
-      <v-divider />
+      </template>
 
       <!-- v-table 自身是 flex 列（wrapper flex-1 overflow auto），
            fixed-header 吸顶表头：限高容器内自然形成表体内部滚动 -->
@@ -124,7 +92,7 @@
           </v-tooltip>
         </template>
       </v-data-table-server>
-    </v-card>
+    </ListPanel>
 
     <v-dialog v-model="dialog" width="560">
       <v-card :title="form.userId ? '修改用户' : '新增用户'" rounded="xl">
@@ -168,6 +136,8 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import SearchPanel from '@/components/SearchPanel.vue'
+import ListPanel from '@/components/ListPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/request'
 import { clearObject } from '@/utils/object'
@@ -188,7 +158,6 @@ const auth = useAuthStore()
 const rows = ref<SysUserRow[]>([])
 const total = ref(0)
 const loading = ref(false)
-const showSearch = ref(true)
 const dialog = ref(false)
 const roleIds = ref<number[]>([])
 const roleOptions = ref<SysRoleOption[]>([])

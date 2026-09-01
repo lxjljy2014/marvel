@@ -1,38 +1,66 @@
 <template>
-  <v-row>
-    <!-- 左：字典类型 -->
-    <v-col cols="12" md="5">
-      <v-card class="border-thin">
-        <v-toolbar flat density="comfortable" color="transparent">
-          <v-toolbar-title class="text-h6 font-bold">字典类型</v-toolbar-title>
-          <v-spacer />
-          <v-text-field
-            v-model="typeQuery.dictType"
-            label="类型键"
-            density="compact"
-            hide-details
-            class="mr-2"
-            style="max-width: 130px"
-            @keyup.enter="loadTypes"
-          />
-          <v-btn color="primary" icon="mdi-magnify" variant="text" @click="loadTypes" />
+  <!-- 上=字典类型搜索（可折叠），下=主从双栏列表：左类型（点击行选中）、右数据，
+       两栏各自占满剩余高度、表体内部滚动 -->
+  <div class="h-full flex flex-col gap-5">
+    <SearchPanel @search="loadTypes" @reset="onReset">
+      <v-col cols="12" sm="6" md="3">
+        <v-text-field
+          v-model="typeQuery.dictName"
+          label="字典名称"
+          density="compact"
+          hide-details
+          clearable
+          @keyup.enter="loadTypes"
+        />
+      </v-col>
+      <v-col cols="12" sm="6" md="3">
+        <v-text-field
+          v-model="typeQuery.dictType"
+          label="类型键"
+          density="compact"
+          hide-details
+          clearable
+          @keyup.enter="loadTypes"
+        />
+      </v-col>
+      <v-col cols="12" sm="6" md="3">
+        <v-select
+          v-model="typeQuery.status"
+          :items="STATUS_OPTIONS"
+          label="状态"
+          density="compact"
+          hide-details
+          clearable
+        />
+      </v-col>
+    </SearchPanel>
+
+    <div class="flex-1 min-h-0 flex flex-col md:flex-row gap-5">
+      <!-- 左：字典类型（选中行驱动右栏） -->
+      <ListPanel :fill="false" title="字典类型" class="w-full md:w-2/5">
+        <template #actions>
           <v-btn
             v-if="auth.hasPerm('system:dict:add')"
             color="success"
-            icon="mdi-plus"
-            variant="text"
+            prepend-icon="mdi-plus"
+            rounded="lg"
             @click="openTypeAdd"
-          />
-        </v-toolbar>
+          >
+            新增
+          </v-btn>
+        </template>
 
         <v-data-table
+          class="flex-1 min-h-0"
+          fixed-header
           :headers="typeHeaders"
           :items="types"
           item-value="dictId"
           :loading="typeLoading"
           hover
-          select-strategy="single"
-          :items-per-page="8"
+          :items-per-page="-1"
+          hide-default-footer
+          :row-props="typeRowProps"
           @click:row="onSelectType"
         >
           <template #item.status="{ item }">
@@ -57,45 +85,44 @@
             />
           </template>
         </v-data-table>
-      </v-card>
-    </v-col>
+      </ListPanel>
 
-    <!-- 右：选中类型的字典数据 -->
-    <v-col cols="12" md="7">
-      <v-card class="border-thin">
-        <v-toolbar flat density="comfortable" color="transparent">
-          <v-toolbar-title class="text-subtitle-1 font-bold">
-            字典数据
-            <v-chip v-if="selectedType" size="small" class="ml-2" label>{{ selectedType.dictType }}</v-chip>
-          </v-toolbar-title>
-          <v-spacer />
+      <!-- 右：选中类型的字典数据 -->
+      <ListPanel title="字典数据">
+        <template #actions>
+          <v-chip v-if="selectedType" size="small" label class="mr-3">{{ selectedType.dictType }}</v-chip>
           <v-text-field
             v-model="dataKeyword"
             label="标签/键值"
             density="compact"
             hide-details
+            clearable
             class="mr-2"
-            style="max-width: 130px"
+            style="max-width: 180px"
             @keyup.enter="loadData"
           />
-          <v-btn color="primary" icon="mdi-magnify" variant="text" @click="loadData" />
           <v-btn
             v-if="auth.hasPerm('system:dict:add') && selectedType"
             color="success"
-            icon="mdi-plus"
-            variant="text"
+            prepend-icon="mdi-plus"
+            rounded="lg"
             @click="openDataAdd"
-          />
-        </v-toolbar>
+          >
+            新增
+          </v-btn>
+        </template>
 
         <v-data-table
+          class="flex-1 min-h-0"
+          fixed-header
           :headers="dataHeaders"
           :items="dictData"
           item-value="dictCode"
           :loading="dataLoading"
           hover
+          :items-per-page="-1"
+          hide-default-footer
           :no-data-text="selectedType ? '该类型暂无数据' : '点击左侧字典类型查看数据'"
-          :items-per-page="10"
         >
           <template #item.status="{ item }">
             <v-chip :color="item.status === '0' ? 'success' : 'error'" size="small" label>
@@ -119,8 +146,8 @@
             />
           </template>
         </v-data-table>
-      </v-card>
-    </v-col>
+      </ListPanel>
+    </div>
 
     <!-- 类型编辑对话框 -->
     <v-dialog v-model="typeDialog" width="480">
@@ -164,15 +191,22 @@
     </v-dialog>
 
     <v-snackbar v-model="snack.show" :color="snack.color" timeout="3000">{{ snack.text }}</v-snackbar>
-  </v-row>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import SearchPanel from '@/components/SearchPanel.vue'
+import ListPanel from '@/components/ListPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/request'
 import { clearObject } from '@/utils/object'
 import type { SysDictDataRow, SysDictTypeRow } from '@/types/api'
+
+const STATUS_OPTIONS = [
+  { title: '正常', value: '0' },
+  { title: '停用', value: '1' },
+]
 
 const auth = useAuthStore()
 
@@ -180,7 +214,7 @@ const auth = useAuthStore()
 const types = ref<SysDictTypeRow[]>([])
 const typeLoading = ref(false)
 const typeDialog = ref(false)
-const typeQuery = reactive({ dictType: '' })
+const typeQuery = reactive({ dictName: '' as string | null, dictType: '' as string | null, status: '' as string | null })
 const typeForm = reactive<Partial<SysDictTypeRow>>({})
 
 const typeHeaders = [
@@ -201,8 +235,8 @@ const dataForm = reactive<Partial<SysDictDataRow>>({})
 const dataHeaders = [
   { title: '标签', key: 'dictLabel' },
   { title: '键值', key: 'dictValue' },
-  { title: '排序', key: 'orderNum', width: 70 },
-  { title: '状态', key: 'status', width: 80 },
+  { title: '排序', key: 'orderNum', width: 90 },
+  { title: '状态', key: 'status', width: 90 },
   { title: '操作', key: 'actions', width: 100, sortable: false },
 ]
 
@@ -226,6 +260,23 @@ async function loadTypes(): Promise<void> {
     notify(e instanceof Error ? e.message : '加载失败', 'error')
   } finally {
     typeLoading.value = false
+  }
+}
+
+function onReset(): void {
+  typeQuery.dictName = null
+  typeQuery.dictType = null
+  typeQuery.status = null
+  void loadTypes()
+}
+
+/** 选中行高亮 + 手型光标 */
+function typeRowProps({ item }: { item: SysDictTypeRow }): { class: string[] } {
+  return {
+    class: [
+      'cursor-pointer',
+      selectedType.value?.dictId === item.dictId ? 'bg-primary/10 font-medium' : '',
+    ],
   }
 }
 

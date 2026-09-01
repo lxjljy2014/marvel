@@ -1,64 +1,75 @@
 <template>
-  <v-card class="border-thin">
-    <v-toolbar flat density="comfortable" color="transparent">
-      <v-toolbar-title class="text-h6 font-bold">通知公告</v-toolbar-title>
-      <v-spacer />
-      <v-select
-        v-model="query.type"
-        :items="typeOptions"
-        label="类型"
-        density="compact"
-        hide-details
-        clearable
-        class="mr-2"
-        style="max-width: 120px"
-        @update:model-value="load"
-      />
-      <v-text-field
-        v-model="query.title"
-        label="标题"
-        density="compact"
-        hide-details
-        class="mr-2"
-        style="max-width: 160px"
-        @keyup.enter="load"
-      />
-      <v-btn color="primary" prepend-icon="mdi-magnify" @click="load">搜索</v-btn>
-      <v-btn
-        v-if="auth.hasPerm('system:notice:add')"
-        color="success"
-        prepend-icon="mdi-plus"
-        class="ml-2"
-        @click="openAdd"
-      >
-        新增
-      </v-btn>
-    </v-toolbar>
+  <!-- 满高两段式布局：上=搜索条件（可折叠），下=列表（占满剩余高度，表格内部滚动） -->
+  <div class="h-full flex flex-col gap-5">
+    <SearchPanel @search="load" @reset="onReset">
+      <v-col cols="12" sm="6" md="3">
+        <v-text-field
+          v-model="query.title"
+          label="标题"
+          density="compact"
+          hide-details
+          clearable
+          @keyup.enter="load"
+        />
+      </v-col>
+      <v-col cols="12" sm="6" md="3">
+        <v-select
+          v-model="query.type"
+          :items="typeOptions"
+          label="类型"
+          density="compact"
+          hide-details
+          clearable
+        />
+      </v-col>
+    </SearchPanel>
 
-    <v-data-table :headers="headers" :items="rows" item-value="noticeId" :loading="loading" hover>
-      <template #item.type="{ item }">
-        <v-chip :color="item.type === '1' ? 'primary' : 'warning'" size="small" label>
-          {{ NOTICE_TYPE_TEXT[item.type] ?? item.type }}
-        </v-chip>
+    <ListPanel title="公告列表">
+      <template #actions>
+        <v-btn
+          v-if="auth.hasPerm('system:notice:add')"
+          color="success"
+          prepend-icon="mdi-plus"
+          rounded="lg"
+          @click="openAdd"
+        >
+          新增
+        </v-btn>
       </template>
-      <template #item.status="{ item }">
-        <v-chip :color="item.status === '0' ? 'success' : 'grey'" size="small" label>
-          {{ item.status === '0' ? '正常' : '关闭' }}
-        </v-chip>
-      </template>
-      <template #item.actions="{ item }">
-        <v-tooltip v-if="auth.hasPerm('system:notice:edit')" text="编辑">
-          <template #activator="{ props: p }">
-            <v-icon v-bind="p" icon="mdi-pencil" size="18" class="mr-3 text-secondary" @click="openEdit(item)" />
-          </template>
-        </v-tooltip>
-        <v-tooltip v-if="auth.hasPerm('system:notice:remove')" text="删除">
-          <template #activator="{ props: p }">
-            <v-icon v-bind="p" icon="mdi-delete" size="18" class="text-error" @click="onDelete(item)" />
-          </template>
-        </v-tooltip>
-      </template>
-    </v-data-table>
+
+      <v-data-table
+        class="flex-1 min-h-0"
+        fixed-header
+        :headers="headers"
+        :items="rows"
+        item-value="noticeId"
+        :loading="loading"
+        hover
+      >
+        <template #item.type="{ item }">
+          <v-chip :color="item.type === '1' ? 'primary' : 'warning'" size="small" label>
+            {{ NOTICE_TYPE_TEXT[item.type] ?? item.type }}
+          </v-chip>
+        </template>
+        <template #item.status="{ item }">
+          <v-chip :color="item.status === '0' ? 'success' : 'grey'" size="small" label>
+            {{ item.status === '0' ? '正常' : '关闭' }}
+          </v-chip>
+        </template>
+        <template #item.actions="{ item }">
+          <v-tooltip v-if="auth.hasPerm('system:notice:edit')" text="编辑">
+            <template #activator="{ props: p }">
+              <v-icon v-bind="p" icon="mdi-pencil" size="18" class="mr-3 text-secondary" @click="openEdit(item)" />
+            </template>
+          </v-tooltip>
+          <v-tooltip v-if="auth.hasPerm('system:notice:remove')" text="删除">
+            <template #activator="{ props: p }">
+              <v-icon v-bind="p" icon="mdi-delete" size="18" class="text-error" @click="onDelete(item)" />
+            </template>
+          </v-tooltip>
+        </template>
+      </v-data-table>
+    </ListPanel>
 
     <v-dialog v-model="dialog" width="640">
       <v-card :title="form.noticeId ? '修改公告' : '新增公告'" rounded="xl">
@@ -83,11 +94,13 @@
     </v-dialog>
 
     <v-snackbar v-model="snack.show" :color="snack.color" timeout="3000">{{ snack.text }}</v-snackbar>
-  </v-card>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import SearchPanel from '@/components/SearchPanel.vue'
+import ListPanel from '@/components/ListPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/request'
 import { clearObject } from '@/utils/object'
@@ -103,7 +116,7 @@ const typeOptions = [
   { title: '通知', value: '1' },
   { title: '公告', value: '2' },
 ]
-const query = reactive({ title: '', type: '' })
+const query = reactive({ title: '' as string | null, type: '' as string | null })
 const form = reactive<Partial<SysNoticeRow>>({})
 const snack = reactive({ show: false, text: '', color: 'success' })
 
@@ -123,14 +136,18 @@ function notify(text: string, color: 'success' | 'error' = 'success'): void {
 async function load(): Promise<void> {
   loading.value = true
   try {
-    rows.value = await http.get<SysNoticeRow[]>('/system/notice/list', {
-      params: { title: query.title || undefined, type: query.type || undefined },
-    })
+    rows.value = await http.get<SysNoticeRow[]>('/system/notice/list', { params: { ...query } })
   } catch (e) {
     notify(e instanceof Error ? e.message : '加载失败', 'error')
   } finally {
     loading.value = false
   }
+}
+
+function onReset(): void {
+  query.title = null
+  query.type = null
+  void load()
 }
 
 function openAdd(): void {
