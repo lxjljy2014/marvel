@@ -1,57 +1,130 @@
 <template>
-  <v-card>
-    <v-toolbar flat density="comfortable" color="transparent">
-      <v-toolbar-title class="text-h6 font-bold">用户管理</v-toolbar-title>
-      <v-spacer />
-      <v-text-field
-        v-model="query.username"
-        label="用户名"
-        density="compact"
-        hide-details
-        class="mr-2" style="max-width: 190px"
-        @keyup.enter="load"
-      />
-      <v-btn color="primary" prepend-icon="mdi-magnify" @click="load">搜索</v-btn>
-      <v-btn
-        v-if="auth.hasPerm('system:user:add')"
-        color="success"
-        prepend-icon="mdi-plus"
-        class="ml-2"
-        @click="openAdd"
-      >
-        新增
-      </v-btn>
-    </v-toolbar>
+  <!-- 满高两段式布局：上=搜索条件（可折叠），下=列表（flex-1 占满剩余高度，表格内部滚动） -->
+  <div class="h-full flex flex-col gap-5">
+    <v-card rounded="lg">
+      <v-toolbar flat density="comfortable" color="transparent">
+        <v-toolbar-title class="text-subtitle-1 font-weight-bold">搜索条件</v-toolbar-title>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          rounded="lg"
+          :append-icon="showSearch ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+          @click="showSearch = !showSearch"
+        >
+          {{ showSearch ? '收起' : '展开' }}
+        </v-btn>
+      </v-toolbar>
 
-    <v-data-table-server
-      :headers="headers"
-      :items="rows"
-      :items-length="total"
-      :items-per-page="query.pageSize"
-      :page="query.pageNum"
-      :loading="loading"
-      item-value="userId"
-      hover
-      @update:options="onOptions"
-    >
-      <template #item.status="{ item }">
-        <v-chip :color="item.status === '0' ? 'success' : 'error'" size="small" label>
-          {{ item.status === '0' ? '正常' : '停用' }}
-        </v-chip>
-      </template>
-      <template #item.actions="{ item }">
-        <v-tooltip v-if="auth.hasPerm('system:user:edit')" text="编辑">
-          <template #activator="{ props: p }">
-            <v-icon v-bind="p" icon="mdi-pencil" size="18" class="mr-3 text-secondary" @click="openEdit(item)" />
-          </template>
-        </v-tooltip>
-        <v-tooltip v-if="auth.hasPerm('system:user:remove')" text="删除">
-          <template #activator="{ props: p }">
-            <v-icon v-bind="p" icon="mdi-delete" size="18" class="text-error" @click="onDelete(item)" />
-          </template>
-        </v-tooltip>
-      </template>
-    </v-data-table-server>
+      <!-- v-expand-transition 包 v-show 实现平滑折叠/展开 -->
+      <v-expand-transition>
+        <div v-show="showSearch">
+          <v-divider />
+          <v-card-text>
+            <v-row>
+              <v-col cols="12" sm="6" md="3">
+                <v-text-field
+                  v-model="query.username"
+                  label="用户名"
+                  density="compact"
+                  hide-details
+                  clearable
+                  @keyup.enter="onSearch"
+                />
+              </v-col>
+              <v-col cols="12" sm="6" md="3">
+                <v-text-field
+                  v-model="query.nickname"
+                  label="昵称"
+                  density="compact"
+                  hide-details
+                  clearable
+                  @keyup.enter="onSearch"
+                />
+              </v-col>
+              <v-col cols="12" sm="6" md="3">
+                <v-select
+                  v-model="query.status"
+                  :items="STATUS_OPTIONS"
+                  label="状态"
+                  density="compact"
+                  hide-details
+                  clearable
+                />
+              </v-col>
+              <v-col cols="12" sm="6" md="3">
+                <v-select
+                  v-model="query.deptId"
+                  :items="deptOptions"
+                  item-title="deptName"
+                  item-value="deptId"
+                  label="部门"
+                  density="compact"
+                  hide-details
+                  clearable
+                />
+              </v-col>
+              <v-col cols="12" class="text-right">
+                <v-btn color="primary" prepend-icon="mdi-magnify" @click="onSearch">搜索</v-btn>
+                <v-btn class="ml-3" prepend-icon="mdi-refresh" @click="onReset">重置</v-btn>
+              </v-col>
+            </v-row>
+          </v-card-text>
+        </div>
+      </v-expand-transition>
+    </v-card>
+
+    <!-- v-card 默认 block，改为 flex 列让表格吃掉剩余高度；
+         min-h-0 防止 flex 子项被内容撑开 -->
+    <v-card rounded="lg" class="flex-1 min-h-0 flex flex-col">
+      <v-toolbar flat density="comfortable" color="transparent">
+        <v-toolbar-title class="text-h6 font-bold">用户列表</v-toolbar-title>
+        <v-spacer />
+        <v-btn
+          v-if="auth.hasPerm('system:user:add')"
+          color="success"
+          prepend-icon="mdi-plus"
+          rounded="lg"
+          @click="openAdd"
+        >
+          新增
+        </v-btn>
+      </v-toolbar>
+      <v-divider />
+
+      <!-- v-table 自身是 flex 列（wrapper flex-1 overflow auto），
+           fixed-header 吸顶表头：限高容器内自然形成表体内部滚动 -->
+      <v-data-table-server
+        class="flex-1 min-h-0"
+        fixed-header
+        :headers="headers"
+        :items="rows"
+        :items-length="total"
+        :items-per-page="query.pageSize"
+        :page="query.pageNum"
+        :loading="loading"
+        item-value="userId"
+        hover
+        @update:options="onOptions"
+      >
+        <template #item.status="{ item }">
+          <v-chip :color="item.status === '0' ? 'success' : 'error'" size="small" label>
+            {{ item.status === '0' ? '正常' : '停用' }}
+          </v-chip>
+        </template>
+        <template #item.actions="{ item }">
+          <v-tooltip v-if="auth.hasPerm('system:user:edit')" text="编辑">
+            <template #activator="{ props: p }">
+              <v-icon v-bind="p" icon="mdi-pencil" size="18" class="mr-3 text-secondary" @click="openEdit(item)" />
+            </template>
+          </v-tooltip>
+          <v-tooltip v-if="auth.hasPerm('system:user:remove')" text="删除">
+            <template #activator="{ props: p }">
+              <v-icon v-bind="p" icon="mdi-delete" size="18" class="text-error" @click="onDelete(item)" />
+            </template>
+          </v-tooltip>
+        </template>
+      </v-data-table-server>
+    </v-card>
 
     <v-dialog v-model="dialog" width="560">
       <v-card :title="form.userId ? '修改用户' : '新增用户'" rounded="xl">
@@ -90,7 +163,7 @@
     </v-dialog>
 
     <v-snackbar v-model="snack.show" :color="snack.color" timeout="3000">{{ snack.text }}</v-snackbar>
-  </v-card>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -106,10 +179,16 @@ import type {
   UserDetailResult,
 } from '@/types/api'
 
+const STATUS_OPTIONS = [
+  { title: '正常', value: '0' },
+  { title: '停用', value: '1' },
+]
+
 const auth = useAuthStore()
 const rows = ref<SysUserRow[]>([])
 const total = ref(0)
 const loading = ref(false)
+const showSearch = ref(true)
 const dialog = ref(false)
 const roleIds = ref<number[]>([])
 const roleOptions = ref<SysRoleOption[]>([])
@@ -118,9 +197,19 @@ const deptOptions = ref<SysDeptRow[]>([])
 interface UserQuery {
   pageNum: number
   pageSize: number
-  username: string
+  username: string | null
+  nickname: string | null
+  status: string | null
+  deptId: number | null
 }
-const query = reactive<UserQuery>({ pageNum: 1, pageSize: 10, username: '' })
+const query = reactive<UserQuery>({
+  pageNum: 1,
+  pageSize: 10,
+  username: null,
+  nickname: null,
+  status: null,
+  deptId: null,
+})
 
 /** 新增/编辑表单：userId 为空表示新增 */
 const form = reactive<Partial<SysUserRow> & { password?: string }>({})
@@ -154,6 +243,20 @@ async function load(): Promise<void> {
   }
 }
 
+/** 搜索/回车查询统一回到第一页，避免停留在越页码 */
+function onSearch(): void {
+  query.pageNum = 1
+  void load()
+}
+
+function onReset(): void {
+  query.username = null
+  query.nickname = null
+  query.status = null
+  query.deptId = null
+  onSearch()
+}
+
 function onOptions(opts: { page: number; itemsPerPage: number }): void {
   query.pageNum = opts.page
   query.pageSize = opts.itemsPerPage
@@ -165,7 +268,7 @@ async function openAdd(): Promise<void> {
   Object.assign(form, { status: '0' })
   roleIds.value = []
   dialog.value = true
-  await loadOptions()
+  await loadRoleOptions()
 }
 
 async function openEdit(item: SysUserRow): Promise<void> {
@@ -174,16 +277,15 @@ async function openEdit(item: SysUserRow): Promise<void> {
   Object.assign(form, detail.user)
   roleIds.value = detail.roleIds
   dialog.value = true
-  await loadOptions()
+  await loadRoleOptions()
 }
 
-async function loadOptions(): Promise<void> {
-  const [roles, depts] = await Promise.all([
-    http.get<SysRoleOption[]>('/system/user/options/roles'),
-    http.get<SysDeptRow[]>('/system/dept/list'),
-  ])
-  roleOptions.value = roles
-  deptOptions.value = depts
+async function loadRoleOptions(): Promise<void> {
+  roleOptions.value = await http.get<SysRoleOption[]>('/system/user/options/roles')
+}
+
+async function loadDeptOptions(): Promise<void> {
+  deptOptions.value = await http.get<SysDeptRow[]>('/system/dept/list')
 }
 
 async function onSave(): Promise<void> {
@@ -215,5 +317,6 @@ async function onDelete(item: SysUserRow): Promise<void> {
 
 onMounted(() => {
   void load()
+  void loadDeptOptions()
 })
 </script>

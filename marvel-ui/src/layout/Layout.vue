@@ -63,8 +63,10 @@
       </v-menu>
     </v-app-bar>
 
-    <v-main>
-      <v-container fluid class="p-5">
+    <!-- scrollable：v-main 绝对定位铺满可视区（自动避开 app-bar/drawer），
+         内容在 main 区域内部滚动而非整页滚动；配合容器 h-full 可做满高页面 -->
+    <v-main scrollable>
+      <v-container fluid class="p-5 h-full flex flex-col">
         <!-- 页面切换过渡：reverse 变体让新页面从左侧进入、向右滑出（即"从左往右"），
              mode=out-in 避免新旧页面同屏叠放 -->
         <router-view v-slot="{ Component, route }">
