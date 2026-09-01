@@ -61,7 +61,9 @@
       </v-menu>
     </v-app-bar>
 
-    <v-main>
+    <!-- 主内容区独立滚动：h-screen 锁定视口高度（含顶栏内边距补偿），
+         长内容只在 v-main 内部产生滚动条，侧栏/顶栏保持固定 -->
+    <v-main class="h-screen overflow-y-auto">
       <v-container fluid class="p-5">
         <!-- 页面切换过渡：reverse 变体让新页面从左侧进入、向右滑出（即"从左往右"），
              mode=out-in 避免新旧页面同屏叠放 -->
