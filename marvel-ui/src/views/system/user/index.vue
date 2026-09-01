@@ -57,11 +57,30 @@
         >
           新增
         </v-btn>
+        <!-- 批量删除：勾选行后可用，ids 拼逗号复用后端批量删除接口 -->
+        <v-btn
+          v-if="auth.hasPerm('system:user:remove')"
+          color="error"
+          variant="tonal"
+          prepend-icon="mdi-delete-outline"
+          rounded="lg"
+          :disabled="!selected.length"
+          @click="onBatchDelete"
+        >
+          批量删除{{ selected.length ? `(${selected.length})` : '' }}
+        </v-btn>
+        <v-tooltip text="刷新" location="bottom">
+          <template #activator="{ props }">
+            <v-btn v-bind="props" icon="mdi-refresh" variant="text" rounded="lg" :loading="loading" @click="load" />
+          </template>
+        </v-tooltip>
+        <ColumnSettings v-model:columns="columns" />
       </template>
 
       <!-- v-table 自身是 flex 列（wrapper flex-1 overflow auto），
            fixed-header 吸顶表头：限高容器内自然形成表体内部滚动 -->
       <v-data-table-server
+        v-model="selected"
         class="flex-1 min-h-0"
         fixed-header
         :headers="headers"
@@ -71,6 +90,7 @@
         :page="query.pageNum"
         :loading="loading"
         item-value="userId"
+        show-select
         hover
         @update:options="onOptions"
       >
@@ -135,9 +155,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import SearchPanel from '@/components/SearchPanel.vue'
 import ListPanel from '@/components/ListPanel.vue'
+import ColumnSettings, { type ColumnDef } from '@/components/ColumnSettings.vue'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/request'
 import { clearObject } from '@/utils/object'
@@ -162,6 +183,8 @@ const dialog = ref(false)
 const roleIds = ref<number[]>([])
 const roleOptions = ref<SysRoleOption[]>([])
 const deptOptions = ref<SysDeptRow[]>([])
+/** 表格勾选的行：Vuetify 4 选中模型存 item-value 值（即 userId 数组） */
+const selected = ref<number[]>([])
 
 interface UserQuery {
   pageNum: number
@@ -185,15 +208,28 @@ const form = reactive<Partial<SysUserRow> & { password?: string }>({})
 
 const snack = reactive({ show: false, text: '', color: 'success' })
 
-const headers = [
-  { title: 'ID', key: 'userId', width: 70 },
-  { title: '用户名', key: 'username' },
-  { title: '昵称', key: 'nickname' },
-  { title: '手机号', key: 'phone' },
-  { title: '状态', key: 'status', width: 90 },
-  { title: '创建时间', key: 'createTime', width: 180 },
-  { title: '操作', key: 'actions', width: 110, sortable: false },
-]
+/** 列定义（列设置弹层可调显隐/固定/顺序），表格 headers 由其计算 */
+const columns = ref<ColumnDef[]>([
+  { key: 'userId', title: 'ID', width: 70, visible: true },
+  { key: 'username', title: '用户名', width: 140, visible: true },
+  { key: 'nickname', title: '昵称', visible: true },
+  { key: 'phone', title: '手机号', visible: true },
+  { key: 'status', title: '状态', width: 90, visible: true },
+  { key: 'createTime', title: '创建时间', width: 180, visible: true },
+  { key: 'actions', title: '操作', width: 110, sortable: false, visible: true },
+])
+
+const headers = computed(() =>
+  columns.value
+    .filter((c) => c.visible)
+    .map((c) => ({
+      title: c.title,
+      key: c.key,
+      width: c.width,
+      sortable: c.sortable,
+      fixed: c.fixed ? ('start' as const) : undefined,
+    })),
+)
 
 function notify(text: string, color: 'success' | 'error' = 'success'): void {
   Object.assign(snack, { show: true, text, color })
@@ -277,6 +313,20 @@ async function onDelete(item: SysUserRow): Promise<void> {
   if (!window.confirm(`确认删除用户「${item.username}」？`)) return
   try {
     await http.delete<null>(`/system/user/${item.userId}`)
+    notify('删除成功')
+    void load()
+  } catch (e) {
+    notify(e instanceof Error ? e.message : '删除失败', 'error')
+  }
+}
+
+/** 批量删除勾选用户（后端 DELETE /{userIds} 支持逗号分隔多 id，超管受保护） */
+async function onBatchDelete(): Promise<void> {
+  if (!selected.value.length) return
+  if (!window.confirm(`确认删除选中的 ${selected.value.length} 个用户？`)) return
+  try {
+    await http.delete<null>(`/system/user/${selected.value.join(',')}`)
+    selected.value = []
     notify('删除成功')
     void load()
   } catch (e) {

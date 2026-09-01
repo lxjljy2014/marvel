@@ -45,7 +45,7 @@ const router = createRouter({
       name: 'layout',
       component: Layout,
       children: [
-        { path: '', name: 'dashboard', component: DashboardView, meta: { title: '首页' } },
+        { path: '', name: 'dashboard', component: DashboardView, meta: { title: '首页', icon: 'mdi-view-dashboard-outline' } },
       ],
     },
     // 未匹配路由兜底：由守卫在动态路由注册完成后再决定去向
