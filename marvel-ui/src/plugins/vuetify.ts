@@ -43,5 +43,12 @@ export default createVuetify({
     VTextField: { variant: 'outlined', density: 'comfortable' },
     VSelect: { variant: 'outlined', density: 'comfortable' },
     VDataTable: { rounded: 'lg' },
+    VList: {
+      prependGap: "10",
+      indent: "24",
+      VIcon: {
+        size: 'small'
+      }
+    }
   },
 })

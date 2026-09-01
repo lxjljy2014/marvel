@@ -3,19 +3,25 @@
        直接提供 v-navigation-drawer / v-app-bar / v-main，
        再嵌套 v-app 会形成双重布局坐标系，导致整页随内容滚动 -->
   <v-navigation-drawer>
-      <div class="flex items-center gap-2 p-5">
+    <template #prepend>
+      <div class="flex items-center gap-2 p-4">
         <v-avatar color="primary" size="34" rounded="lg">
           <v-icon icon="mdi-hexagon-multiple" size="20" />
         </v-avatar>
         <span class="text-h6 font-bold">Marvel Admin</span>
       </div>
-      <v-divider class="mb-2" />
+      <v-divider />
+    </template>
+  
       <!-- color prop 定制激活态颜色（Vuetify 4：active-color 已弃用），无需覆盖底层样式 -->
-      <v-list nav density="comfortable" class="px-2" color="primary">
+      <v-list nav density="comfortable" color="primary">
+        <!-- exact 必须加：首页是 layout 的空 path 默认子路由（'' 解析后与父级 '/' 同路径），
+             vue-router 对默认子路由会退而匹配父级 record，导致任何子页面下首页都被判激活 -->
         <v-list-item
           prepend-icon="mdi-view-dashboard-outline"
           title="首页"
           :to="{ name: 'dashboard' }"
+          exact
           rounded="lg"
         />
         <template v-for="menu in auth.menus" :key="menu.id">
@@ -57,7 +63,7 @@
             <v-icon icon="mdi-chevron-down" size="18" class="ml-1" />
           </v-btn>
         </template>
-        <v-list density="compact" elevation="4">
+        <v-list nav density="compact" elevation="4">
           <v-list-item title="退出登录" prepend-icon="mdi-logout" @click="onLogout" />
         </v-list>
       </v-menu>
@@ -66,14 +72,9 @@
     <!-- scrollable：v-main 绝对定位铺满可视区（自动避开 app-bar/drawer），
          内容在 main 区域内部滚动而非整页滚动；配合容器 h-full 可做满高页面 -->
     <v-main scrollable>
-      <v-container fluid class="p-5 h-full flex flex-col">
-        <!-- 页面切换过渡：Vuetify 官方站点同款做法——过渡组件 + hide-on-leave +
-             key 挂在中间 div 上。不用 mode=out-in：其 leave 完成后的重渲染链路
-             存在已确认的缺陷（vuejs/core#11824，官方未发版），会导致新页永不
-             插入、整页空白；hide-on-leave 让离场页立即 display:none 脱离布局，
-             进场页从左滑入，无叠放且无死锁 -->
+      <v-container fluid class="h-full flex flex-col">
         <router-view v-slot="{ Component, route }">
-          <v-scroll-x-transition hide-on-leave>
+          <v-scroll-x-transition mode="out-in">
             <div :key="route.path" class="flex-1 min-h-0 flex flex-col">
               <component :is="Component" />
             </div>
