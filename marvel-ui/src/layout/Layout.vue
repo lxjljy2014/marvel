@@ -64,15 +64,18 @@
     </v-app-bar>
 
     <!-- scrollable：v-main 绝对定位铺满可视区（自动避开 app-bar/drawer），
-         内容在 main 区域内部滚动而非整页滚动；配合容器 h-full 可做满高页面 -->
+         内容在 main 区域内部滚动而非整页滚动；配合容器 h-full 可做满高页面；
+         relative 供页面过渡时离场页绝对定位叠放（见 page-transition.css） -->
     <v-main scrollable>
-      <v-container fluid class="p-5 h-full flex flex-col">
-        <!-- 页面切换过渡：reverse 变体让新页面从左侧进入、向右滑出（即"从左往右"），
-             mode=out-in 避免新旧页面同屏叠放 -->
+      <v-container fluid class="p-5 h-full flex flex-col relative">
+        <!-- 页面切换过渡（原生 Transition + 自定义样式，见 styles/page-transition.css）。
+             不用 mode=out-in：与懒加载路由组件组合时 leave 完成后的重渲染链路
+             会静默断裂（新页永不插入、整页空白且不可恢复），改为新旧同时过渡、
+             离场页绝对定位叠放滑出，视觉等效且无死锁风险 -->
         <router-view v-slot="{ Component, route }">
-          <v-scroll-x-transition mode="out-in">
+          <Transition name="page">
             <component :is="Component" :key="route.path" />
-          </v-scroll-x-transition>
+          </Transition>
         </router-view>
       </v-container>
     </v-main>
@@ -82,6 +85,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import '@/styles/page-transition.css'
 
 const auth = useAuthStore()
 const router = useRouter()
